@@ -1,5 +1,18 @@
 {
   "permissions": {
     "allow": ["WebFetch", "WebSearch"]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node build-shortlist-csv.mjs"
+          }
+        ]
+      }
+    ]
   }
 }
