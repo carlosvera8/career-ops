@@ -17,7 +17,6 @@
 
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import yaml from 'js-yaml';
-const parseYaml = yaml.load;
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -288,7 +287,7 @@ async function main() {
     process.exit(1);
   }
 
-  const config = parseYaml(readFileSync(PORTALS_PATH, 'utf-8'));
+  const config = yaml.load(readFileSync(PORTALS_PATH, 'utf-8'));
   const companies = config.tracked_companies || [];
   const titleFilter = buildTitleFilter(config.title_filter);
 

@@ -48,10 +48,3 @@ Processes offer URLs accumulated in `data/pipeline.md`. The user adds URLs whene
 2. Extract the number from the prefix (e.g., `142-medispend...` → 142)
 3. New number = maximum found + 1
 
-## Source sync
-
-Before processing any URL, verify sync:
-```bash
-node cv-sync-check.mjs
-```
-If there is a desync, warn the user before continuing.

@@ -3,8 +3,7 @@
 You are a job offer evaluation worker for the candidate (read name from config/profile.yml). You receive an offer (URL + JD text) and produce:
 
 1. Full A-G evaluation (report .md)
-2. ATS-optimized personalized PDF
-3. Tracker line for later merge
+2. Tracker line for later merge
 
 **IMPORTANT**: This prompt is self-contained. Everything you need is here. You do not depend on any other skill or system.
 
@@ -18,8 +17,6 @@ You are a job offer evaluation worker for the candidate (read name from config/p
 | llms.txt | `llms.txt (if exists)` | ALWAYS |
 | article-digest.md | `article-digest.md (project root)` | ALWAYS (proof points) |
 | i18n.ts | `i18n.ts (if exists, optional)` | Only for interviews/deep |
-| cv-template.html | `templates/cv-template.html` | For PDF |
-| generate-pdf.mjs | `generate-pdf.mjs` | For PDF |
 
 **RULE: NEVER write to cv.md or i18n.ts.** They are read-only.
 **RULE: NEVER hardcode metrics.** Read them from cv.md + article-digest.md at evaluation time.
@@ -192,7 +189,6 @@ Where `{company-slug}` is the company name in lowercase, no spaces, with hyphens
 **Score:** {X/5}
 **Legitimacy:** {High Confidence | Proceed with Caution | Suspicious}
 **URL:** {original offer URL}
-**PDF:** career-ops/output/cv-candidate-{company-slug}-{{DATE}}.pdf
 **Batch ID:** {{ID}}
 
 ---
@@ -224,90 +220,16 @@ Where `{company-slug}` is the company name in lowercase, no spaces, with hyphens
 (15-20 keywords from the JD for ATS)
 ```
 
-### Step 4 — Generate PDF
-
-1. Read `cv.md` + `i18n.ts`
-2. Extract 15-20 keywords from the JD
-3. Detect JD language → CV language (EN default)
-4. Detect company location → paper format: US/Canada → `letter`, rest → `a4`
-5. Detect archetype → adapt framing
-6. Rewrite Professional Summary injecting keywords
-7. Select top 3-4 most relevant projects
-8. Reorder experience bullets by JD relevance
-9. Build competency grid (6-8 keyword phrases)
-10. Inject keywords into existing achievements (**NEVER invent**)
-11. Generate full HTML from template (read `templates/cv-template.html`)
-12. Write HTML to `/tmp/cv-candidate-{company-slug}.html`
-13. Execute:
-```bash
-node generate-pdf.mjs \
-  /tmp/cv-candidate-{company-slug}.html \
-  output/cv-candidate-{company-slug}-{{DATE}}.pdf \
-  --format={letter|a4}
-```
-14. Report: PDF path, page count, % keyword coverage
-
-**ATS rules:**
-- Single-column (no sidebars)
-- Standard headers: "Professional Summary", "Work Experience", "Education", "Skills", "Certifications", "Projects"
-- No text in images/SVGs
-- No critical info in headers/footers
-- UTF-8, selectable text
-- Keywords distributed: Summary (top 5), first bullet of each role, Skills section
-
-**Design:**
-- Fonts: Space Grotesk (headings, 600-700) + DM Sans (body, 400-500)
-- Fonts self-hosted: `fonts/`
-- Header: Space Grotesk 24px bold + cyan→purple 2px gradient + contact info
-- Section headers: Space Grotesk 13px uppercase, cyan color `hsl(187,74%,32%)`
-- Body: DM Sans 11px, line-height 1.5
-- Company names: purple `hsl(270,70%,45%)`
-- Margins: 0.6in
-- Background: white
-
-**Keyword injection strategy (ethical):**
-- Rephrase real experience with the JD's exact vocabulary
-- NEVER add skills the candidate doesn't have
-- Example: JD says "RAG pipelines" and CV says "LLM workflows with retrieval" → "RAG pipeline design and LLM orchestration workflows"
-
-**Template placeholders (in cv-template.html):**
-
-| Placeholder | Content |
-|-------------|---------|
-| `{{LANG}}` | `en` or `es` |
-| `{{PAGE_WIDTH}}` | `8.5in` (letter) or `210mm` (A4) |
-| `{{NAME}}` | (from profile.yml) |
-| `{{EMAIL}}` | (from profile.yml) |
-| `{{LINKEDIN_URL}}` | (from profile.yml) |
-| `{{LINKEDIN_DISPLAY}}` | (from profile.yml) |
-| `{{PORTFOLIO_URL}}` | (from profile.yml) |
-| `{{PORTFOLIO_DISPLAY}}` | (from profile.yml) |
-| `{{LOCATION}}` | (from profile.yml) |
-| `{{SECTION_SUMMARY}}` | Professional Summary / Resumen Profesional |
-| `{{SUMMARY_TEXT}}` | Personalized summary with keywords |
-| `{{SECTION_COMPETENCIES}}` | Core Competencies / Competencias Core |
-| `{{COMPETENCIES}}` | `<span class="competency-tag">keyword</span>` × 6-8 |
-| `{{SECTION_EXPERIENCE}}` | Work Experience / Experiencia Laboral |
-| `{{EXPERIENCE}}` | HTML of each job with reordered bullets |
-| `{{SECTION_PROJECTS}}` | Projects / Proyectos |
-| `{{PROJECTS}}` | HTML of top 3-4 projects |
-| `{{SECTION_EDUCATION}}` | Education / Formación |
-| `{{EDUCATION}}` | HTML of education |
-| `{{SECTION_CERTIFICATIONS}}` | Certifications / Certificaciones |
-| `{{CERTIFICATIONS}}` | HTML of certifications |
-| `{{SECTION_SKILLS}}` | Skills / Competencias |
-| `{{SKILLS}}` | HTML of skills |
-
-### Step 5 — Tracker Line
+### Step 4 — Tracker Line
 
 Write a TSV line to:
 ```
 batch/tracker-additions/{{ID}}.tsv
 ```
 
-TSV format (single line, no header, 9 tab-separated columns):
+TSV format (single line, no header, 8 tab-separated columns):
 ```
-{next_num}\t{{DATE}}\t{company}\t{role}\t{status}\t{score}/5\t{pdf_emoji}\t[{{REPORT_NUM}}](reports/{{REPORT_NUM}}-{company-slug}-{{DATE}}.md)\t{one_line_note}
+{next_num}\t{{DATE}}\t{company}\t{role}\t{status}\t{score}/5\t[{{REPORT_NUM}}](reports/{{REPORT_NUM}}-{company-slug}-{{DATE}}.md)\t{one_line_note}
 ```
 
 **TSV columns (exact order):**
@@ -320,17 +242,16 @@ TSV format (single line, no header, 9 tab-separated columns):
 | 4 | role | string | `Staff AI Engineer` | Job title |
 | 5 | status | canonical | `Evaluated` | MUST be canonical (see states.yml) |
 | 6 | score | X.XX/5 | `4.55/5` | Or `N/A` if not evaluable |
-| 7 | pdf | emoji | `✅` or `❌` | Whether PDF was generated |
-| 8 | report | md link | `[647](reports/647-...)` | Link to report |
-| 9 | notes | string | `APPLY HIGH...` | One-sentence summary |
+| 7 | report | md link | `[647](reports/647-...)` | Link to report |
+| 8 | notes | string | `APPLY HIGH...` | One-sentence summary |
 
-**IMPORTANT:** TSV order has status BEFORE score (col 5→status, col 6→score). In applications.md the order is reversed (col 5→score, col 6→status). merge-tracker.mjs handles the conversion.
+**IMPORTANT:** TSV order has status BEFORE score (col 5→status, col 6→score). In applications.md the order is reversed (col 5→score, col 6→status).
 
 **Valid canonical states:** `Evaluated`, `Applied`, `Responded`, `Interview`, `Offer`, `Rejected`, `Discarded`, `SKIP`
 
 Where `{next_num}` is calculated by reading the last line of `data/applications.md`.
 
-### Step 6 — Final output
+### Step 5 — Final output
 
 When done, print to stdout a JSON summary for the orchestrator to parse:
 
@@ -343,7 +264,6 @@ When done, print to stdout a JSON summary for the orchestrator to parse:
   "role": "{role}",
   "score": {score_num},
   "legitimacy": "{High Confidence|Proceed with Caution|Suspicious}",
-  "pdf": "{pdf_path}",
   "report": "{report_path}",
   "error": null
 }
@@ -358,7 +278,6 @@ If something fails:
   "company": "{company_or_unknown}",
   "role": "{role_or_unknown}",
   "score": null,
-  "pdf": null,
   "report": "{report_path_if_exists}",
   "error": "{error_description}"
 }
