@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 /**
- * Scans all reports and exports data/reports.csv with one row per report.
- * Run: node build-shortlist-csv.mjs
- * Auto-called at session end via Stop hook.
+ * Scans reports and exports to CSV.
+ * Default: rebuilds data/reports.csv from all reports (called by Stop hook).
+ * --batch:  writes data/batches/YYYYMMDDHHII.csv using only reports from the
+ *           current batch run (reads report numbers from batch/batch-state.tsv).
  */
 
 import fs from 'fs';
 import path from 'path';
 
 const REPORTS_DIR = './reports';
-const CSV_OUT = './data/reports.csv';
+const MASTER_CSV = './data/reports.csv';
+const BATCH_STATE = './batch/batch-state.tsv';
+const BATCHES_DIR = './data/batches';
+
+const batchMode = process.argv.includes('--batch');
 
 function parseReport(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
@@ -57,12 +62,56 @@ function parseReport(filePath) {
   };
 }
 
-const files = fs.readdirSync(REPORTS_DIR)
+function readBatchReportNums() {
+  if (!fs.existsSync(BATCH_STATE)) return new Set();
+  const lines = fs.readFileSync(BATCH_STATE, 'utf8').split('\n');
+  const nums = new Set();
+  for (const line of lines) {
+    const cols = line.split('\t');
+    if (cols[0] === 'id' || !cols[5]) continue;
+    const num = cols[5].trim();
+    if (num && num !== '-') nums.add(num.replace(/^0+/, '') || '0');
+  }
+  return nums;
+}
+
+function buildTimestamp() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
+function writeCSV(rows, outPath) {
+  const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const headers = ['#', 'Date', 'Company', 'Role', 'Score', 'URL', 'Legitimacy', 'Archetype', 'Verification', 'Report'];
+  const csvLines = [
+    headers.join(','),
+    ...rows.map(r => [r.num, r.date, r.company, r.role, r.score, r.url, r.legitimacy, r.archetype, r.verification, r.report].map(escape).join(','))
+  ];
+  fs.writeFileSync(outPath, csvLines.join('\n') + '\n');
+  console.log(`Wrote ${rows.length} rows to ${outPath}`);
+}
+
+const allFiles = fs.readdirSync(REPORTS_DIR)
   .filter(f => f.endsWith('.md'))
   .sort();
 
+let filesToProcess = allFiles;
+
+if (batchMode) {
+  const batchNums = readBatchReportNums();
+  if (batchNums.size === 0) {
+    console.log('No completed reports found in batch-state.tsv — skipping batch CSV.');
+    process.exit(0);
+  }
+  filesToProcess = allFiles.filter(f => {
+    const num = f.match(/^(\d+)/)?.[1]?.replace(/^0+/, '') || '0';
+    return batchNums.has(num);
+  });
+}
+
 const rows = [];
-for (const file of files) {
+for (const file of filesToProcess) {
   try {
     const row = parseReport(path.join(REPORTS_DIR, file));
     if (row) rows.push(row);
@@ -73,13 +122,9 @@ for (const file of files) {
 
 rows.sort((a, b) => a.num.padStart(6, '0').localeCompare(b.num.padStart(6, '0')));
 
-const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
-
-const headers = ['#', 'Date', 'Company', 'Role', 'Score', 'URL', 'Legitimacy', 'Archetype', 'Verification', 'Report'];
-const csvLines = [
-  headers.join(','),
-  ...rows.map(r => [r.num, r.date, r.company, r.role, r.score, r.url, r.legitimacy, r.archetype, r.verification, r.report].map(escape).join(','))
-];
-
-fs.writeFileSync(CSV_OUT, csvLines.join('\n') + '\n');
-console.log(`Wrote ${rows.length} rows to ${CSV_OUT}`);
+if (batchMode) {
+  fs.mkdirSync(BATCHES_DIR, { recursive: true });
+  writeCSV(rows, path.join(BATCHES_DIR, `${buildTimestamp()}.csv`));
+} else {
+  writeCSV(rows, MASTER_CSV);
+}

@@ -403,6 +403,13 @@ merge_tracker() {
   node "$PROJECT_DIR/verify-pipeline.mjs" || echo "⚠️  Verification found issues (see above)"
 }
 
+# Export this batch's reports to a timestamped CSV in data/batches/
+export_batch_csv() {
+  echo ""
+  echo "=== Exporting batch CSV ==="
+  node "$PROJECT_DIR/build-shortlist-csv.mjs" --batch
+}
+
 # Print summary
 print_summary() {
   echo ""
@@ -589,6 +596,9 @@ main() {
 
   # Merge tracker additions
   merge_tracker
+
+  # Export batch CSV
+  export_batch_csv
 
   # Print summary
   print_summary
