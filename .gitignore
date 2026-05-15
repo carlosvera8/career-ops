@@ -28,6 +28,8 @@ modes/_profile.md
 
 # Generated
 .resolved-prompt-*
+*.csv
+data/batches/
 node_modules/
 bun.lock
 

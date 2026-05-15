@@ -8,7 +8,11 @@
     "update": "node update-system.mjs apply",
     "rollback": "node update-system.mjs rollback",
     "liveness": "node check-liveness.mjs",
-    "scan": "node scan.mjs"
+    "scan": "node scan.mjs",
+    "drive:auth": "node auth-drive.mjs",
+    "drive:upload": "node upload-to-drive.mjs --latest",
+    "drive:upload:all": "node upload-to-drive.mjs --all",
+    "drive:upload:master": "node upload-to-drive.mjs --master"
   },
   "keywords": [
     "ai",
@@ -25,6 +29,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "googleapis": "^171.4.0",
     "js-yaml": "^4.1.1",
     "playwright": "^1.58.1"
   }
